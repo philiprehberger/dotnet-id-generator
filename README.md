@@ -1,5 +1,9 @@
 # Philiprehberger.IdGenerator
 
+[![CI](https://github.com/philiprehberger/dotnet-id-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/dotnet-id-generator/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/Philiprehberger.IdGenerator.svg)](https://www.nuget.org/packages/Philiprehberger.IdGenerator)
+[![License](https://img.shields.io/github/license/philiprehberger/dotnet-id-generator)](LICENSE)
+
 Sortable, URL-safe unique ID generators — ULID, NanoID, and prefixed IDs.
 
 ## Install
