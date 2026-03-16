@@ -135,6 +135,12 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 |-------------|
 | System.Text.Json converter for ULID serialization/deserialization |
 
+## Development
+
+```bash
+dotnet build src/Philiprehberger.IdGenerator.csproj --configuration Release
+```
+
 ## License
 
 MIT
