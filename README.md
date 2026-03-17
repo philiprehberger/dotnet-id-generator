@@ -6,7 +6,7 @@
 
 Sortable, URL-safe unique ID generators — ULID, NanoID, and prefixed IDs.
 
-## Install
+## Installation
 
 ```bash
 dotnet add package Philiprehberger.IdGenerator
