@@ -7,9 +7,9 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Philiprehberger.IdGenerator</PackageId>
-    <Version>0.1.5</Version>
+    <Version>0.1.6</Version>
     <Authors>Philip Rehberger</Authors>
-    <Description>Sortable, URL-safe unique ID generators — ULID, NanoID, and prefixed IDs</Description>
+    <Description>Sortable, URL-safe unique ID generators — ULID, NanoID, and prefixed IDs.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/philiprehberger/dotnet-id-generator</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
