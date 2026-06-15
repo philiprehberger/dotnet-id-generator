@@ -17,6 +17,7 @@ jobs:
           dotnet-version: '8.0.x'
       - run: dotnet restore src/Philiprehberger.IdGenerator.csproj
       - run: dotnet build src/Philiprehberger.IdGenerator.csproj --configuration Release --no-restore
+      - run: dotnet test tests/Philiprehberger.IdGenerator.Tests/Philiprehberger.IdGenerator.Tests.csproj --configuration Release --no-restore
 
   publish:
     needs: build

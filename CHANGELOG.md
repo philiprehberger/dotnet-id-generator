@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 (2026-06-14)
+
+- Add `Ulid.NewMonotonic()` and `Id.NewMonotonicUlid()` for strictly-increasing ULIDs within the same millisecond
+- Add `Ulid.FromBytes(ReadOnlySpan<byte>)` and `Ulid.ToByteArray()` for binary round-trip
+- Add `Id.NewGuidV7()` returning a UUID v7 `Guid` per RFC 9562
+- Fix `Ulid.TryParse` round-trip — decoder previously dropped two bits per byte, causing `Ulid.Parse(ulid.ToString())` to return incorrect values
+- Add xUnit test project under `tests/Philiprehberger.IdGenerator.Tests/` with full coverage of every public class
+- Add `dotnet test` step to the CI workflow
+- Add card image to README
+
 ## 0.1.8 (2026-03-31)
 
 - Standardize README to 3-badge format with emoji Support section

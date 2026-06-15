@@ -15,6 +15,10 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
 
     private static readonly long UnixEpochMs = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
+    private static readonly object MonotonicLock = new();
+    private static long _lastMonotonicTimestamp;
+    private static byte[]? _lastMonotonicRandom;
+
     private readonly byte[] _bytes;
 
     /// <summary>
@@ -31,6 +35,65 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
     private Ulid(byte[] bytes)
     {
         _bytes = bytes;
+    }
+
+    /// <summary>
+    /// Creates a new ULID guaranteed to sort strictly after any previous monotonic ULID
+    /// generated in the same process, even when called multiple times within the same millisecond.
+    /// </summary>
+    /// <returns>A new monotonic <see cref="Ulid"/>.</returns>
+    public static Ulid NewMonotonic()
+    {
+        var bytes = new byte[16];
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        lock (MonotonicLock)
+        {
+            if (timestamp == _lastMonotonicTimestamp && _lastMonotonicRandom is not null)
+            {
+                Array.Copy(_lastMonotonicRandom, 0, bytes, TimestampBytes, RandomBytes);
+                IncrementRandom(bytes);
+            }
+            else
+            {
+                RandomNumberGenerator.Fill(bytes.AsSpan(TimestampBytes));
+            }
+
+            WriteTimestamp(bytes, timestamp);
+            _lastMonotonicTimestamp = timestamp;
+            _lastMonotonicRandom = new byte[RandomBytes];
+            Array.Copy(bytes, TimestampBytes, _lastMonotonicRandom, 0, RandomBytes);
+        }
+
+        return new Ulid(bytes);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="Ulid"/> from its 16-byte binary representation.
+    /// </summary>
+    /// <param name="bytes">A 16-byte span containing the ULID payload (6-byte timestamp + 10 random).</param>
+    /// <returns>A <see cref="Ulid"/> wrapping a copy of the input.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="bytes"/> is not exactly 16 bytes long.</exception>
+    public static Ulid FromBytes(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length != 16)
+            throw new ArgumentException("ULID byte representation must be exactly 16 bytes.", nameof(bytes));
+
+        var copy = new byte[16];
+        bytes.CopyTo(copy);
+        return new Ulid(copy);
+    }
+
+    /// <summary>
+    /// Returns a copy of the 16-byte binary representation of this ULID.
+    /// </summary>
+    /// <returns>A 16-byte array containing the timestamp (first 6 bytes) and random (last 10 bytes) components.</returns>
+    public byte[] ToByteArray()
+    {
+        var copy = new byte[16];
+        if (_bytes is not null)
+            Array.Copy(_bytes, copy, Math.Min(_bytes.Length, 16));
+        return copy;
     }
 
     /// <summary>
@@ -78,7 +141,6 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
         var upper = input.ToUpperInvariant();
         var bytes = new byte[16];
 
-        // Decode 26 Crockford Base32 characters into 16 bytes (128 bits)
         var bits = new int[EncodedLength];
         for (int i = 0; i < EncodedLength; i++)
         {
@@ -87,9 +149,8 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
             bits[i] = idx;
         }
 
-        // First 10 chars encode 48-bit timestamp (each char = 5 bits, 50 bits total, top 2 must be 0)
-        // Last 16 chars encode 80-bit random
-        // Total: 26 chars * 5 bits = 130 bits, but we only use 128
+        // 26 chars × 5 bits = 130 bits, of which the top 2 are zero padding
+        // added during encoding. Discard those 2 leading bits before extracting bytes.
         int bitBuffer = 0;
         int bitsInBuffer = 0;
         int byteIndex = 0;
@@ -98,6 +159,12 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
         {
             bitBuffer = (bitBuffer << 5) | bits[i];
             bitsInBuffer += 5;
+
+            if (i == 0)
+            {
+                bitsInBuffer -= 2;
+                bitBuffer &= (1 << bitsInBuffer) - 1;
+            }
 
             while (bitsInBuffer >= 8 && byteIndex < 16)
             {
@@ -208,5 +275,16 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
         bytes[3] = (byte)(timestampMs >> 16);
         bytes[4] = (byte)(timestampMs >> 8);
         bytes[5] = (byte)timestampMs;
+    }
+
+    private static void IncrementRandom(byte[] bytes)
+    {
+        for (var i = 15; i >= TimestampBytes; i--)
+        {
+            if (++bytes[i] != 0)
+                return;
+        }
+
+        throw new OverflowException("Monotonic ULID random component overflowed; cannot maintain ordering within the current millisecond.");
     }
 }

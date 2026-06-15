@@ -4,7 +4,9 @@
 [![NuGet](https://img.shields.io/nuget/v/Philiprehberger.IdGenerator.svg)](https://www.nuget.org/packages/Philiprehberger.IdGenerator)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/dotnet-id-generator)](https://github.com/philiprehberger/dotnet-id-generator/commits/main)
 
-Sortable, URL-safe unique ID generators — ULID, NanoID, and prefixed IDs.
+![Philiprehberger.IdGenerator](https://raw.githubusercontent.com/philiprehberger/dotnet-id-generator/main/package-card.webp)
+
+Sortable, URL-safe unique ID generators — ULID, monotonic ULID, NanoID, UUID v7, and prefixed IDs.
 
 ## Installation
 
@@ -21,6 +23,9 @@ using Philiprehberger.IdGenerator;
 var ulid = Id.NewUlid();
 Console.WriteLine(ulid); // "01HXYZ..."
 
+// Generate a monotonic ULID — strictly increasing within a millisecond
+var mono = Id.NewMonotonicUlid();
+
 // Generate a NanoID (21 chars, URL-safe)
 var nano = Id.NewNanoId();
 Console.WriteLine(nano); // "V1StGXR8_Z5jdHi6B-myT"
@@ -35,6 +40,9 @@ Console.WriteLine(prefixed); // "usr_01HXYZ..."
 // Generate a short ID (12 chars)
 var shortId = Id.NewShortId();
 Console.WriteLine(shortId); // "a8f3kQ_9xZrT"
+
+// Generate a UUID v7 (RFC 9562) — time-sortable Guid
+Guid guidV7 = Id.NewGuidV7();
 ```
 
 ### ULID
@@ -59,10 +67,38 @@ if (Ulid.TryParse("01HXYZ...", out var result))
 // Convert to GUID
 Guid guid = ulid.ToGuid();
 
+// Round-trip through raw bytes
+byte[] bytes = ulid.ToByteArray();
+var restored = Ulid.FromBytes(bytes);
+
 // ULIDs are sortable
 var a = Id.NewUlid();
 var b = Id.NewUlid();
 Console.WriteLine(a < b); // true (a was created first)
+```
+
+### Monotonic ULID
+
+```csharp
+using Philiprehberger.IdGenerator;
+
+// Guaranteed to sort strictly after the previous monotonic ULID,
+// even when called multiple times within the same millisecond.
+var a = Ulid.NewMonotonic();
+var b = Ulid.NewMonotonic();
+var c = Ulid.NewMonotonic();
+Console.WriteLine(a < b && b < c); // true
+```
+
+### UUID v7
+
+```csharp
+using Philiprehberger.IdGenerator;
+
+// RFC 9562 UUID v7 — 48-bit Unix-ms timestamp + 74 bits random.
+// Sortable as a string, fits anywhere a Guid is expected.
+Guid id = Id.NewGuidV7();
+Console.WriteLine(id);
 ```
 
 ### Prefixed IDs
@@ -100,19 +136,24 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 | Method | Description |
 |--------|-------------|
 | `NewUlid()` | Generate a new ULID |
+| `NewMonotonicUlid()` | Generate a strictly-increasing ULID (monotonic within a millisecond) |
 | `NewNanoId(int size = 21, string? alphabet = null)` | Generate a NanoID |
 | `NewPrefixed(string prefix)` | Generate a prefixed ID |
 | `NewShortId(int length = 12)` | Generate a short random ID |
+| `NewGuidV7()` | Generate a UUID v7 `Guid` (RFC 9562) |
 
 ### `Ulid` (readonly struct)
 
 | Member | Description |
 |--------|-------------|
 | `Ulid()` | Create a new ULID with current timestamp |
+| `Ulid.NewMonotonic()` | Create a monotonic ULID guaranteed to sort after any previous monotonic value |
+| `Ulid.FromBytes(ReadOnlySpan<byte>)` | Create a ULID from its 16-byte representation |
 | `Timestamp` | Extract the timestamp as DateTimeOffset |
 | `Parse(string)` | Parse a ULID from a 26-char string |
 | `TryParse(string?, out Ulid)` | Safely parse a ULID string |
 | `ToGuid()` | Convert to a Guid |
+| `ToByteArray()` | Return a copy of the 16-byte payload |
 | `ToString()` | 26-char Crockford Base32 representation |
 | `==`, `!=`, `<`, `>`, `<=`, `>=` | Comparison operators |
 
@@ -139,6 +180,7 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 
 ```bash
 dotnet build src/Philiprehberger.IdGenerator.csproj --configuration Release
+dotnet test tests/Philiprehberger.IdGenerator.Tests/Philiprehberger.IdGenerator.Tests.csproj --configuration Release
 ```
 
 ## Support
