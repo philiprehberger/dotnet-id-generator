@@ -115,4 +115,83 @@ public class UlidTests
         var ulid = new Ulid();
         Assert.Equal(16, ulid.ToByteArray().Length);
     }
+
+    [Fact]
+    public void FromGuid_RoundTripsThroughToGuid()
+    {
+        var original = new Ulid();
+        var restored = Ulid.FromGuid(original.ToGuid());
+
+        Assert.Equal(original, restored);
+        Assert.Equal(original.ToString(), restored.ToString());
+    }
+
+    [Fact]
+    public void MinValue_SortsBeforeAnyUlid()
+    {
+        var ulid = new Ulid();
+        Assert.True(Ulid.MinValue < ulid);
+        Assert.Equal(new string('0', 26), Ulid.MinValue.ToString());
+    }
+
+    [Fact]
+    public void MaxValue_SortsAfterAnyUlid()
+    {
+        var ulid = new Ulid();
+        Assert.True(Ulid.MaxValue > ulid);
+        Assert.True(Ulid.MinValue < Ulid.MaxValue);
+    }
+
+    [Fact]
+    public void FromTimestamp_EncodesGivenTimestamp()
+    {
+        var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000);
+        var ulid = Ulid.FromTimestamp(timestamp);
+
+        Assert.Equal(timestamp, ulid.Timestamp);
+    }
+
+    [Fact]
+    public void FromTimestamp_LowerBoundSortsBeforeUpperBoundSameTimestamp()
+    {
+        var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000);
+        var lower = Ulid.FromTimestamp(timestamp);
+        var upper = Ulid.FromTimestamp(timestamp, maxRandom: true);
+
+        Assert.True(lower < upper);
+        Assert.Equal(timestamp, upper.Timestamp);
+    }
+
+    [Fact]
+    public void FromTimestamp_BoundsBracketRandomUlidAtSameTimestamp()
+    {
+        var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000);
+        var lower = Ulid.FromTimestamp(timestamp);
+        var upper = Ulid.FromTimestamp(timestamp, maxRandom: true);
+        // Same timestamp, arbitrary random component.
+        var mid = Ulid.FromBytes(BuildBytes(timestamp.ToUnixTimeMilliseconds(), 0x80));
+
+        Assert.True(lower <= mid && mid <= upper);
+    }
+
+    [Fact]
+    public void FromTimestamp_BeforeEpoch_Throws()
+    {
+        var beforeEpoch = DateTimeOffset.FromUnixTimeMilliseconds(-1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => Ulid.FromTimestamp(beforeEpoch));
+    }
+
+    private static byte[] BuildBytes(long timestampMs, byte randomFill)
+    {
+        var bytes = new byte[16];
+        bytes[0] = (byte)(timestampMs >> 40);
+        bytes[1] = (byte)(timestampMs >> 32);
+        bytes[2] = (byte)(timestampMs >> 24);
+        bytes[3] = (byte)(timestampMs >> 16);
+        bytes[4] = (byte)(timestampMs >> 8);
+        bytes[5] = (byte)timestampMs;
+        for (var i = 6; i < 16; i++)
+            bytes[i] = randomFill;
+        return bytes;
+    }
 }

@@ -85,6 +85,54 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
     }
 
     /// <summary>
+    /// The smallest possible ULID — all 16 bytes zero. Sorts before every other ULID.
+    /// </summary>
+    public static Ulid MinValue => new(new byte[16]);
+
+    /// <summary>
+    /// The largest possible ULID — all 16 bytes <c>0xFF</c>. Sorts after every other ULID.
+    /// </summary>
+    public static Ulid MaxValue
+    {
+        get
+        {
+            var bytes = new byte[16];
+            Array.Fill(bytes, (byte)0xFF);
+            return new Ulid(bytes);
+        }
+    }
+
+    /// <summary>
+    /// Creates a ULID with the given timestamp and a fixed random component of either all-zero
+    /// (lower bound) or all-<c>0xFF</c> (upper bound). Useful for building inclusive range bounds
+    /// over ULID-keyed data: <c>id BETWEEN FromTimestamp(start) AND FromTimestamp(end, maxRandom: true)</c>.
+    /// </summary>
+    /// <param name="timestamp">The timestamp to encode in the ULID (millisecond precision).</param>
+    /// <param name="maxRandom">
+    /// When <c>false</c> (default), the random component is all zero (the smallest ULID for the timestamp).
+    /// When <c>true</c>, it is all <c>0xFF</c> (the largest ULID for the timestamp).
+    /// </param>
+    /// <returns>A boundary <see cref="Ulid"/> for the given timestamp.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timestamp"/> is before the Unix epoch.</exception>
+    public static Ulid FromTimestamp(DateTimeOffset timestamp, bool maxRandom = false)
+    {
+        var ms = timestamp.ToUnixTimeMilliseconds();
+        if (ms < 0)
+            throw new ArgumentOutOfRangeException(nameof(timestamp), "Timestamp must be at or after the Unix epoch (1970-01-01).");
+
+        var bytes = new byte[16];
+        WriteTimestamp(bytes, ms);
+
+        if (maxRandom)
+        {
+            for (var i = TimestampBytes; i < 16; i++)
+                bytes[i] = 0xFF;
+        }
+
+        return new Ulid(bytes);
+    }
+
+    /// <summary>
     /// Returns a copy of the 16-byte binary representation of this ULID.
     /// </summary>
     /// <returns>A 16-byte array containing the timestamp (first 6 bytes) and random (last 10 bytes) components.</returns>
@@ -185,6 +233,17 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
     public Guid ToGuid()
     {
         return new Guid(_bytes);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="Ulid"/> from a <see cref="Guid"/>. This is the inverse of
+    /// <see cref="ToGuid"/> — <c>Ulid.FromGuid(u.ToGuid())</c> returns a ULID equal to <c>u</c>.
+    /// </summary>
+    /// <param name="guid">The GUID whose 16 bytes back the ULID.</param>
+    /// <returns>A <see cref="Ulid"/> wrapping the GUID's bytes.</returns>
+    public static Ulid FromGuid(Guid guid)
+    {
+        return new Ulid(guid.ToByteArray());
     }
 
     /// <summary>

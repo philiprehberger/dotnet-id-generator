@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-07-15)
+
+- Add `Ulid.FromGuid(Guid)` — the inverse of `ToGuid()`, round-tripping a ULID through a `Guid`
+- Add `Ulid.MinValue` and `Ulid.MaxValue` sentinel ULIDs (all-zero and all-`0xFF`)
+- Add `Ulid.FromTimestamp(DateTimeOffset, bool maxRandom = false)` to build inclusive lower/upper ULID bounds for time-range scans
+
 ## 0.2.0 (2026-06-14)
 
 - Add `Ulid.NewMonotonic()` and `Id.NewMonotonicUlid()` for strictly-increasing ULIDs within the same millisecond

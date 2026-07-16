@@ -64,8 +64,9 @@ if (Ulid.TryParse("01HXYZ...", out var result))
     Console.WriteLine(result);
 }
 
-// Convert to GUID
+// Convert to and from a GUID (round-trips)
 Guid guid = ulid.ToGuid();
+var fromGuid = Ulid.FromGuid(guid);
 
 // Round-trip through raw bytes
 byte[] bytes = ulid.ToByteArray();
@@ -88,6 +89,21 @@ var a = Ulid.NewMonotonic();
 var b = Ulid.NewMonotonic();
 var c = Ulid.NewMonotonic();
 Console.WriteLine(a < b && b < c); // true
+```
+
+### Time-Range Bounds
+
+```csharp
+using Philiprehberger.IdGenerator;
+
+// Build inclusive lower/upper ULID bounds for a time window — ideal for range scans
+// over ULID-keyed data (e.g. WHERE id BETWEEN @start AND @end).
+var start = Ulid.FromTimestamp(DateTimeOffset.UtcNow.AddDays(-1));                 // random bytes all 0x00
+var end = Ulid.FromTimestamp(DateTimeOffset.UtcNow, maxRandom: true);             // random bytes all 0xFF
+
+// Sentinel bounds
+var min = Ulid.MinValue; // all-zero, sorts before every ULID
+var max = Ulid.MaxValue; // all-0xFF, sorts after every ULID
 ```
 
 ### UUID v7
@@ -149,6 +165,10 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 | `Ulid()` | Create a new ULID with current timestamp |
 | `Ulid.NewMonotonic()` | Create a monotonic ULID guaranteed to sort after any previous monotonic value |
 | `Ulid.FromBytes(ReadOnlySpan<byte>)` | Create a ULID from its 16-byte representation |
+| `Ulid.FromGuid(Guid)` | Create a ULID from a Guid (inverse of `ToGuid()`) |
+| `Ulid.FromTimestamp(DateTimeOffset, bool maxRandom = false)` | Create a lower/upper ULID bound for a timestamp |
+| `Ulid.MinValue` | Smallest possible ULID (all-zero) |
+| `Ulid.MaxValue` | Largest possible ULID (all-`0xFF`) |
 | `Timestamp` | Extract the timestamp as DateTimeOffset |
 | `Parse(string)` | Parse a ULID from a 26-char string |
 | `TryParse(string?, out Ulid)` | Safely parse a ULID string |
