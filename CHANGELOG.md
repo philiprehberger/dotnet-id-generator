@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 (2026-10-30)
+
+- `Ulid` now implements `ISpanParsable<Ulid>` and `ISpanFormattable`: `Parse`/`TryParse` over `ReadOnlySpan<char>` (with and without `IFormatProvider?`), `TryFormat(Span<char>, ...)`, and `ToString(string?, IFormatProvider?)`
+- String `Parse`/`TryParse` now delegate to the span decoder, which uses a stack buffer instead of intermediate arrays; case-insensitive Crockford decoding is unchanged
+- `Ulid.ToString()` on a `default(Ulid)` now returns 26 zeros instead of throwing
+- Add `PrefixedId.TryParse(string? id, out string prefix, out Ulid ulid)` to split a prefixed ID into its parts
+- Add `NanoId.Alphabets` constants: `Default`, `Numbers`, `Lowercase`, `Alphanumeric`, `NoLookAlikes`
+- Reorder the csproj to the standard template layout
+
 ## 0.3.0 (2026-07-15)
 
 - Add `Ulid.FromGuid(Guid)` — the inverse of `ToGuid()`, round-tripping a ULID through a `Guid`

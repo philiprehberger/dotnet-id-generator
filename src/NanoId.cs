@@ -13,6 +13,39 @@ public static class NanoId
     public const string DefaultAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
 
     /// <summary>
+    /// Common alphabets for use with <see cref="Generate(int, string?)"/>.
+    /// </summary>
+    public static class Alphabets
+    {
+        /// <summary>
+        /// The default URL-safe alphabet: A-Za-z0-9_- (same as <see cref="NanoId.DefaultAlphabet"/>).
+        /// </summary>
+        public const string Default = DefaultAlphabet;
+
+        /// <summary>
+        /// Decimal digits only: 0-9.
+        /// </summary>
+        public const string Numbers = "0123456789";
+
+        /// <summary>
+        /// Lowercase ASCII letters only: a-z.
+        /// </summary>
+        public const string Lowercase = "abcdefghijklmnopqrstuvwxyz";
+
+        /// <summary>
+        /// Uppercase and lowercase ASCII letters and digits: A-Za-z0-9 (no symbols).
+        /// </summary>
+        public const string Alphanumeric = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+        /// <summary>
+        /// Letters and digits with visually ambiguous characters removed
+        /// (<c>1</c>, <c>l</c>, <c>I</c>, <c>0</c>, <c>O</c>, <c>o</c>, <c>u</c>, <c>v</c>, <c>5</c>, <c>S</c>, <c>s</c>, <c>2</c>, <c>Z</c>).
+        /// Useful for IDs that people read aloud or type by hand.
+        /// </summary>
+        public const string NoLookAlikes = "346789ABCDEFGHJKLMNPQRTUVWXYabcdefghijkmnpqrtwxyz";
+    }
+
+    /// <summary>
     /// Generates a NanoID string.
     /// </summary>
     /// <param name="size">The length of the generated ID. Defaults to 21.</param>

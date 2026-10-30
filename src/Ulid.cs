@@ -6,7 +6,7 @@ namespace Philiprehberger.IdGenerator;
 /// A ULID (Universally Unique Lexicographically Sortable Identifier).
 /// 128-bit value: 48-bit timestamp + 80-bit random, encoded as 26 Crockford Base32 characters.
 /// </summary>
-public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
+public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>, ISpanParsable<Ulid>, ISpanFormattable
 {
     private const string CrockfordBase32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
     private const int EncodedLength = 26;
@@ -174,6 +174,39 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
     }
 
     /// <summary>
+    /// Parses a 26-character Crockford Base32 string into a <see cref="Ulid"/>.
+    /// </summary>
+    /// <param name="s">The ULID string to parse.</param>
+    /// <param name="provider">Ignored; ULID parsing is culture-invariant.</param>
+    /// <returns>The parsed ULID.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid ULID string.</exception>
+    public static Ulid Parse(string s, IFormatProvider? provider) => Parse(s);
+
+    /// <summary>
+    /// Parses a 26-character Crockford Base32 span into a <see cref="Ulid"/>.
+    /// Decoding is case-insensitive.
+    /// </summary>
+    /// <param name="s">The characters to parse.</param>
+    /// <returns>The parsed ULID.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid ULID string.</exception>
+    public static Ulid Parse(ReadOnlySpan<char> s)
+    {
+        if (!TryParse(s, out var ulid))
+            throw new FormatException($"Invalid ULID string: '{s.ToString()}'");
+        return ulid;
+    }
+
+    /// <summary>
+    /// Parses a 26-character Crockford Base32 span into a <see cref="Ulid"/>.
+    /// Decoding is case-insensitive.
+    /// </summary>
+    /// <param name="s">The characters to parse.</param>
+    /// <param name="provider">Ignored; ULID parsing is culture-invariant.</param>
+    /// <returns>The parsed ULID.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid ULID string.</exception>
+    public static Ulid Parse(ReadOnlySpan<char> s, IFormatProvider? provider) => Parse(s);
+
+    /// <summary>
     /// Attempts to parse a 26-character Crockford Base32 string into a <see cref="Ulid"/>.
     /// </summary>
     /// <param name="input">The ULID string to parse.</param>
@@ -181,21 +214,49 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
     /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
     public static bool TryParse(string? input, out Ulid result)
     {
+        if (input is null)
+        {
+            result = default;
+            return false;
+        }
+
+        return TryParse(input.AsSpan(), out result);
+    }
+
+    /// <summary>
+    /// Attempts to parse a 26-character Crockford Base32 string into a <see cref="Ulid"/>.
+    /// </summary>
+    /// <param name="s">The ULID string to parse.</param>
+    /// <param name="provider">Ignored; ULID parsing is culture-invariant.</param>
+    /// <param name="result">The parsed ULID, if successful.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
+    public static bool TryParse(string? s, IFormatProvider? provider, out Ulid result) => TryParse(s, out result);
+
+    /// <summary>
+    /// Attempts to parse a 26-character Crockford Base32 span into a <see cref="Ulid"/>
+    /// without allocating intermediate buffers. Decoding is case-insensitive.
+    /// </summary>
+    /// <param name="s">The characters to parse.</param>
+    /// <param name="provider">Ignored; ULID parsing is culture-invariant.</param>
+    /// <param name="result">The parsed ULID, if successful.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Ulid result) => TryParse(s, out result);
+
+    /// <summary>
+    /// Attempts to parse a 26-character Crockford Base32 span into a <see cref="Ulid"/>
+    /// without allocating intermediate buffers. Decoding is case-insensitive.
+    /// </summary>
+    /// <param name="s">The characters to parse.</param>
+    /// <param name="result">The parsed ULID, if successful.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Ulid result)
+    {
         result = default;
 
-        if (input is null || input.Length != EncodedLength)
+        if (s.Length != EncodedLength)
             return false;
 
-        var upper = input.ToUpperInvariant();
-        var bytes = new byte[16];
-
-        var bits = new int[EncodedLength];
-        for (int i = 0; i < EncodedLength; i++)
-        {
-            var idx = CrockfordBase32.IndexOf(upper[i]);
-            if (idx < 0) return false;
-            bits[i] = idx;
-        }
+        Span<byte> bytes = stackalloc byte[16];
 
         // 26 chars × 5 bits = 130 bits, of which the top 2 are zero padding
         // added during encoding. Discard those 2 leading bits before extracting bytes.
@@ -205,7 +266,10 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
 
         for (int i = 0; i < EncodedLength; i++)
         {
-            bitBuffer = (bitBuffer << 5) | bits[i];
+            var idx = CrockfordBase32.IndexOf(char.ToUpperInvariant(s[i]));
+            if (idx < 0) return false;
+
+            bitBuffer = (bitBuffer << 5) | idx;
             bitsInBuffer += 5;
 
             if (i == 0)
@@ -222,7 +286,7 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
             }
         }
 
-        result = new Ulid(bytes);
+        result = new Ulid(bytes.ToArray());
         return true;
     }
 
@@ -251,19 +315,74 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
     /// </summary>
     public override string ToString()
     {
-        // Encode 16 bytes (128 bits) into 26 Crockford Base32 characters (130 bits, 2 leading zero bits)
-        var chars = new char[EncodedLength];
-        int bitBuffer = 0;
-        int bitsInBuffer = 0;
-        int charIndex = 0;
+        return string.Create(EncodedLength, this, static (chars, ulid) => ulid.Encode(chars));
+    }
+
+    /// <summary>
+    /// Returns the 26-character Crockford Base32 string representation of this ULID.
+    /// </summary>
+    /// <param name="format">The format to use. Only <c>null</c>, empty, or <c>"G"</c> (canonical uppercase) is supported.</param>
+    /// <param name="formatProvider">Ignored; ULID formatting is culture-invariant.</param>
+    /// <returns>The canonical ULID string.</returns>
+    /// <exception cref="FormatException">Thrown when <paramref name="format"/> is not supported.</exception>
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        ValidateFormat(format);
+        return ToString();
+    }
+
+    /// <summary>
+    /// Writes the 26-character Crockford Base32 representation of this ULID into
+    /// <paramref name="destination"/> without allocating.
+    /// </summary>
+    /// <param name="destination">The span to write into. Must hold at least 26 characters.</param>
+    /// <param name="charsWritten">The number of characters written (26 on success, 0 on failure).</param>
+    /// <param name="format">The format to use. Only empty or <c>"G"</c> (canonical uppercase) is supported.</param>
+    /// <param name="provider">Ignored; ULID formatting is culture-invariant.</param>
+    /// <returns><c>true</c> if the value was written; <c>false</c> if <paramref name="destination"/> is too small.</returns>
+    /// <exception cref="FormatException">Thrown when <paramref name="format"/> is not supported.</exception>
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        ValidateFormat(format);
+
+        if (destination.Length < EncodedLength)
+        {
+            charsWritten = 0;
+            return false;
+        }
+
+        Encode(destination);
+        charsWritten = EncodedLength;
+        return true;
+    }
+
+    private static void ValidateFormat(ReadOnlySpan<char> format)
+    {
+        if (format.Length == 0 || (format.Length == 1 && format[0] == 'G'))
+            return;
+
+        throw new FormatException($"Unsupported ULID format: '{format.ToString()}'. Use null, empty, or \"G\".");
+    }
+
+    private void Encode(Span<char> chars)
+    {
+        // Encode 16 bytes (128 bits) into 26 Crockford Base32 characters (130 bits, 2 leading zero bits).
+        // A default-initialized struct has no backing array and encodes as all zeros.
+        var bytes = _bytes;
+        if (bytes is null)
+        {
+            chars[..EncodedLength].Fill('0');
+            return;
+        }
 
         // Prepend 2 zero bits to make 130 bits total
-        bitBuffer = 0;
-        bitsInBuffer = 2;
+        int bitBuffer = 0;
+        int bitsInBuffer = 2;
+        int charIndex = 0;
 
         for (int i = 0; i < 16 && charIndex < EncodedLength; i++)
         {
-            bitBuffer = (bitBuffer << 8) | _bytes[i];
+            bitBuffer = (bitBuffer << 8) | bytes[i];
             bitsInBuffer += 8;
 
             while (bitsInBuffer >= 5 && charIndex < EncodedLength)
@@ -273,8 +392,6 @@ public readonly struct Ulid : IComparable<Ulid>, IEquatable<Ulid>
                 bitBuffer &= (1 << bitsInBuffer) - 1;
             }
         }
-
-        return new string(chars);
     }
 
     /// <inheritdoc />

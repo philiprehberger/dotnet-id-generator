@@ -38,4 +38,41 @@ public static class PrefixedId
         var ulidPart = id[prefixWithSeparator.Length..];
         return Ulid.TryParse(ulidPart, out _);
     }
+
+    /// <summary>
+    /// Attempts to split a prefixed ID into its prefix and ULID components.
+    /// The separator is the last underscore (<c>_</c>), matching the "{prefix}_{ulid}" format produced
+    /// by <see cref="Create(string)"/>; ULIDs never contain underscores, so prefixes that contain
+    /// underscores (e.g., "acct_live") are supported.
+    /// </summary>
+    /// <param name="id">The full prefixed ID string to parse.</param>
+    /// <param name="prefix">The prefix, if successful; otherwise <see cref="string.Empty"/>.</param>
+    /// <param name="ulid">The parsed ULID, if successful; otherwise <c>default</c>.</param>
+    /// <returns>
+    /// <c>true</c> if <paramref name="id"/> has a non-blank prefix, an underscore separator, and a valid ULID;
+    /// otherwise <c>false</c>.
+    /// </returns>
+    public static bool TryParse(string? id, out string prefix, out Ulid ulid)
+    {
+        prefix = string.Empty;
+        ulid = default;
+
+        if (string.IsNullOrEmpty(id))
+            return false;
+
+        var separator = id.LastIndexOf('_');
+        if (separator <= 0)
+            return false;
+
+        var prefixPart = id.AsSpan(0, separator);
+        if (prefixPart.IsWhiteSpace())
+            return false;
+
+        if (!Ulid.TryParse(id.AsSpan(separator + 1), out var parsed))
+            return false;
+
+        prefix = prefixPart.ToString();
+        ulid = parsed;
+        return true;
+    }
 }

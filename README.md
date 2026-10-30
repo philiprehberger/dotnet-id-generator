@@ -33,6 +33,10 @@ Console.WriteLine(nano); // "V1StGXR8_Z5jdHi6B-myT"
 // Generate a NanoID with custom size and alphabet
 var custom = Id.NewNanoId(size: 10, alphabet: "0123456789abcdef");
 
+// Use a built-in alphabet
+var pin = NanoId.Generate(size: 6, alphabet: NanoId.Alphabets.Numbers);       // "482915"
+var code = NanoId.Generate(size: 8, alphabet: NanoId.Alphabets.NoLookAlikes); // "Hk7tQ3xR"
+
 // Generate a Stripe-style prefixed ID
 var prefixed = Id.NewPrefixed("usr");
 Console.WriteLine(prefixed); // "usr_01HXYZ..."
@@ -76,6 +80,30 @@ var restored = Ulid.FromBytes(bytes);
 var a = Id.NewUlid();
 var b = Id.NewUlid();
 Console.WriteLine(a < b); // true (a was created first)
+```
+
+### Span Parsing and Formatting
+
+```csharp
+using Philiprehberger.IdGenerator;
+
+// Ulid implements ISpanParsable<Ulid> and ISpanFormattable
+ReadOnlySpan<char> line = "id=01ARZ3NDEKTSV4RRFFQ69G5FAV;";
+if (Ulid.TryParse(line.Slice(3, 26), out var fromSpan))
+{
+    Console.WriteLine(fromSpan.Timestamp);
+}
+
+// Format into a caller-supplied buffer without allocating a string
+Span<char> buffer = stackalloc char[26];
+if (fromSpan.TryFormat(buffer, out int written))
+{
+    Console.WriteLine(buffer[..written].ToString());
+}
+
+// Works with generic parsing and string interpolation
+static T ParseAny<T>(string s) where T : IParsable<T> => T.Parse(s, null);
+var generic = ParseAny<Ulid>("01ARZ3NDEKTSV4RRFFQ69G5FAV");
 ```
 
 ### Monotonic ULID
@@ -129,6 +157,13 @@ var orgId = PrefixedId.Create("org");    // "org_01HXYZ..."
 // Validate a prefixed ID
 bool valid = PrefixedId.Validate("usr_01HXYZ...", "usr"); // true
 bool wrong = PrefixedId.Validate("usr_01HXYZ...", "org"); // false
+
+// Split a prefixed ID into its prefix and ULID
+if (PrefixedId.TryParse(userId, out string prefix, out Ulid ulid))
+{
+    Console.WriteLine(prefix);         // "usr"
+    Console.WriteLine(ulid.Timestamp); // creation time
+}
 ```
 
 ### JSON Serialization
@@ -172,6 +207,11 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 | `Timestamp` | Extract the timestamp as DateTimeOffset |
 | `Parse(string)` | Parse a ULID from a 26-char string |
 | `TryParse(string?, out Ulid)` | Safely parse a ULID string |
+| `Parse(ReadOnlySpan<char>)` | Parse a ULID from a 26-char span (case-insensitive) |
+| `TryParse(ReadOnlySpan<char>, out Ulid)` | Safely parse a ULID span without intermediate buffers |
+| `Parse` / `TryParse` with `IFormatProvider?` | `ISpanParsable<Ulid>` overloads for string and span (provider ignored) |
+| `TryFormat(Span<char>, out int, ReadOnlySpan<char> = default, IFormatProvider? = null)` | Write the 26-char string into a buffer without allocating |
+| `ToString(string?, IFormatProvider?)` | `IFormattable` overload; supports `null`, `""`, or `"G"` |
 | `ToGuid()` | Convert to a Guid |
 | `ToByteArray()` | Return a copy of the 16-byte payload |
 | `ToString()` | 26-char Crockford Base32 representation |
@@ -182,6 +222,17 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 | Method | Description |
 |--------|-------------|
 | `Generate(int size = 21, string? alphabet = null)` | Generate a random NanoID |
+| `DefaultAlphabet` | The default URL-safe alphabet (`A-Za-z0-9_-`) |
+
+### `NanoId.Alphabets` (static)
+
+| Constant | Description |
+|----------|-------------|
+| `Default` | URL-safe `A-Za-z0-9_-` (same as `NanoId.DefaultAlphabet`) |
+| `Numbers` | Digits `0-9` |
+| `Lowercase` | Lowercase letters `a-z` |
+| `Alphanumeric` | `A-Za-z0-9` without symbols |
+| `NoLookAlikes` | Letters and digits without look-alike characters (`1lI0Oo...`) |
 
 ### `PrefixedId` (static)
 
@@ -189,6 +240,7 @@ var back = JsonSerializer.Deserialize<Ulid>(json, options);
 |--------|-------------|
 | `Create(string prefix)` | Create a prefixed ID with a ULID suffix |
 | `Validate(string id, string expectedPrefix)` | Check prefix and ULID validity |
+| `TryParse(string? id, out string prefix, out Ulid ulid)` | Split a prefixed ID at its last `_` into prefix and ULID |
 
 ### `UlidJsonConverter`
 

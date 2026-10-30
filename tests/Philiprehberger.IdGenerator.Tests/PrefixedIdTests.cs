@@ -53,4 +53,49 @@ public class PrefixedIdTests
         Assert.False(PrefixedId.Validate("", "usr"));
         Assert.False(PrefixedId.Validate("usr_01HXYZ", ""));
     }
+
+    [Fact]
+    public void TryParse_RoundTripsCreate()
+    {
+        var id = PrefixedId.Create("usr");
+
+        Assert.True(PrefixedId.TryParse(id, out var prefix, out var ulid));
+        Assert.Equal("usr", prefix);
+        Assert.Equal(id, $"{prefix}_{ulid}");
+    }
+
+    [Fact]
+    public void TryParse_PrefixContainingUnderscore_SplitsAtLastUnderscore()
+    {
+        var id = PrefixedId.Create("acct_live");
+
+        Assert.True(PrefixedId.TryParse(id, out var prefix, out _));
+        Assert.Equal("acct_live", prefix);
+        Assert.True(PrefixedId.Validate(id, prefix));
+    }
+
+    [Fact]
+    public void TryParse_IsCaseInsensitiveForUlidPart()
+    {
+        var ulid = new Ulid();
+
+        Assert.True(PrefixedId.TryParse($"usr_{ulid.ToString().ToLowerInvariant()}", out _, out var parsed));
+        Assert.Equal(ulid, parsed);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("01ARZ3NDEKTSV4RRFFQ69G5FAV")]
+    [InlineData("_01ARZ3NDEKTSV4RRFFQ69G5FAV")]
+    [InlineData("   _01ARZ3NDEKTSV4RRFFQ69G5FAV")]
+    [InlineData("usr_")]
+    [InlineData("usr_not-a-valid-ulid-here")]
+    [InlineData("usr-01ARZ3NDEKTSV4RRFFQ69G5FAV")]
+    public void TryParse_WithInvalidInput_ReturnsFalse(string? id)
+    {
+        Assert.False(PrefixedId.TryParse(id, out var prefix, out var ulid));
+        Assert.Equal(string.Empty, prefix);
+        Assert.Equal(default, ulid);
+    }
 }
